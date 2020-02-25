@@ -3,25 +3,19 @@ import math
 
 from collections import defaultdict
 
+
 class Simulation:
 
     def __init__(self, plane):
         self.plane = plane
         self.states = []
 
-    def calculate_step(self):
-        self.plane.calculate_time_derivatives()
-
-    def save_step_result(self):
-        self.calculate_step()
-        self.states.append(self.plane.dump_state())
-
     def simulate(self):
-        for x in range(0, 10):
-            self.calculate_step()
-            self.save_step_result()
-
-        print(self.states)
+        for x in range(0, 1000):
+            self.plane.calculate_time_derivatives()
+            self.states.append(
+                self.plane.dump_state()
+            )
 
 class PhysicalPlane:
     def __init__(self):
@@ -32,7 +26,6 @@ class PhysicalPlane:
     def add_physical_object(self, physical_object, position, collision_layer=None):
         self.physical_objects.append((physical_object, position))
         self.collision_layers[collision_layer].append(physical_object)
-
 
     def calculate_time_derivatives(self):
         new_physical_objects = []
@@ -48,10 +41,8 @@ class PhysicalPlane:
 
     def dump_state(self):
         objects = []
-
         for physical_object in self.physical_objects:
-            points = physical_object[0].get_boundaries(physical_object[1])
-            objects.append(points)
+            objects.append(physical_object[1])
 
         return objects
 
@@ -142,7 +133,7 @@ class PhysicalRect(PhysicalObject):
             Vector2D(x1, y1),
             Vector2D(x2, y2),
         )
-
+    
 
 class Car(PhysicalRect):
 
@@ -160,7 +151,9 @@ class Car(PhysicalRect):
         assert value >= -1
         assert value <= 1
         self.force.set_length(acceleration_force_max * value)
-
+    
+    def apply_controls(self):
+        pass
         
 class TestPhysicalPlaneWithBasicObject(unittest.TestCase):
 
@@ -234,7 +227,12 @@ if __name__ == '__main__':
     force = GeometricVector2D(1, 1)
     car.force = force
     plane.add_physical_object(car, Vector2D(0, 0))
+
     sim.simulate()
+
+    import pickle
+    pickle.dump(sim, open("result.sim", "wb"))
+
 
     unittest.main()
 
