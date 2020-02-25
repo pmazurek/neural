@@ -3,6 +3,26 @@ import math
 
 from collections import defaultdict
 
+class Simulation:
+
+    def __init__(self, plane):
+        self.plane = plane
+        self.states = []
+
+    def calculate_step(self):
+        self.plane.calculate_time_derivatives()
+
+    def save_step_result(self):
+        self.calculate_step()
+        self.states.append(self.plane.dump_state())
+
+    def simulate(self):
+        for x in range(0, 10):
+            self.calculate_step()
+            self.save_step_result()
+
+        print(self.states)
+
 class PhysicalPlane:
     def __init__(self):
         self.physical_objects = []
@@ -25,6 +45,15 @@ class PhysicalPlane:
             new_physical_objects.append((physical_object, Vector2D(new_position_x, new_position_y)))
 
         self.physical_objects = new_physical_objects
+
+    def dump_state(self):
+        objects = []
+
+        for physical_object in self.physical_objects:
+            points = physical_object[0].get_boundaries(physical_object[1])
+            objects.append(points)
+
+        return objects
 
 class GeometricVector2D:
 
@@ -61,6 +90,7 @@ class Vector2D:
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
 
+
 class PhysicalObject:
 
     def __init__(self, mass):
@@ -72,12 +102,19 @@ class PhysicalObject:
         self.force = force
 
     def calculate_time_derivatives(self, time_delta_seconds):
-        x_velocity = self.velocity.x + ((self.mass/self.force.x) * time_delta_seconds)
-        y_velocity = self.velocity.y + ((self.mass/self.force.y) * time_delta_seconds)
+        x_velocity = self.velocity.x
+        y_velocity = self.velocity.y
+        if self.force.x != 0:
+            x_velocity += ((self.mass/self.force.x) * time_delta_seconds)
+        if self.force.y != 0:
+            y_velocity += ((self.mass/self.force.y) * time_delta_seconds)
         self.velocity = Vector2D(x_velocity, y_velocity)
 
     def get_velocity(self):
         return self.velocity
+
+    def get_boundaries(self, *args, **kwargs):
+        raise NotImplementedError()
 
     def __repr__(self):
         return str("V: %s, F: %s, m: %s" % (
@@ -191,5 +228,13 @@ class TestPhysicalPlaneWithBasicObject(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    plane = PhysicalPlane()
+    sim = Simulation(plane)
+    car = Car(10, 20, 20, 20, 20)
+    force = GeometricVector2D(1, 1)
+    car.force = force
+    plane.add_physical_object(car, Vector2D(0, 0))
+    sim.simulate()
+
     unittest.main()
 
