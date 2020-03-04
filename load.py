@@ -19,12 +19,15 @@ class SimulationVisualisation(arcade.Window):
         self.current_step = 0
 
     def setup(self):
-        self.background = arcade.load_texture("track.png")
+        self.background = arcade.load_texture("tracks/1.png")
 
     def on_draw(self):
         arcade.start_render()
+        try:
+            step = self.simulation.states[self.current_step]
+        except:
+            step = self.simulation.states[-1]
 
-        step = self.simulation.states[self.current_step]
         self.current_step +=1 
         arcade.draw_lrwh_rectangle_textured(
             0, 0,

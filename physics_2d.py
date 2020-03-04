@@ -1,6 +1,7 @@
 import unittest
 import math
 import random
+import copy
 
 from collections import defaultdict
 
@@ -50,9 +51,9 @@ class PhysicalPlane:
         self.physical_objects = new_physical_objects
 
     def apply_object_actions(self):
-        for physical_object, _ in self.physical_objects:
+        for physical_object, current_position in self.physical_objects:
             if hasattr(physical_object, 'apply_controls'):
-                physical_object.apply_controls()
+                physical_object.apply_controls(current_position, self)
 
     def dump_state(self):
         objects = []
@@ -109,6 +110,12 @@ class GeometricVector2D:
 
     def set_length(self, length):
         self.length = length
+
+    def get_linear_function(self):
+        y = math.sin(math.radians(self.angle))
+        x = math.cos(math.radians(self.angle))
+        a = x/y
+        return a
 
 class Vector2D:
     def __init__(self, x, y):
@@ -192,15 +199,42 @@ class Car(PhysicalRect):
         assert value <= 1
         self.force.set_length(self.acceleration_force_max * value)
     
-    def apply_controls(self):
-        angle, acceleration = self.control_manager.decide_actions(None) # TODO inputs
+    def apply_controls(self, current_position, plane):
+        sensor_data = self.calculate_sensor_data(current_position, plane)
+        angle, acceleration = self.control_manager.decide_actions(sensor_data)
         self.set_acceleration(acceleration)
         self.turn(angle)
 
     def set_control_manager(self, control_manager):
         self.control_manager = control_manager
 
-        
+    def calculate_sensor_data(self, current_position, plane):
+
+        def get_distance_in_direction(angle):
+            direction = GeometricVector2D(0, angle)
+            for length in range(0, 20):
+                direction.length += 1
+                new_x = math.floor((direction.x + current_position.x) / plane.track_granularity_m)
+                new_y = math.floor((direction.y + current_position.y) / plane.track_granularity_m)
+                try:
+                    is_collision = plane.track_data[new_y][new_x]
+                except: # if out of bounds then treat as collision
+                    break
+
+                if is_collision:
+                   break
+
+            return direction.length
+
+        sensor_data = []
+        sensor_data.append(get_distance_in_direction(self.force.angle))
+        sensor_data.append(get_distance_in_direction(self.force.angle + 45))
+        sensor_data.append(get_distance_in_direction(self.force.angle - 45))
+        sensor_data.append(get_distance_in_direction(self.force.angle + 90))
+        sensor_data.append(get_distance_in_direction(self.force.angle - 90))
+        return sensor_data
+
+
 class TestPhysicalPlaneWithBasicObject(unittest.TestCase):
 
     def test_simple_derivatives_with_one_object(self):
@@ -265,8 +299,15 @@ class TestPhysicalPlaneWithBasicObject(unittest.TestCase):
             round(7.07107, 5)
         )
 
-
-
+    def test_geo_vector_linear_function(self):
+        # simple case y=1x at 45 angle
+        vector = GeometricVector2D(1, 45)
+        a = vector.get_linear_function()
+        self.assertEqual(
+            round(a, 1),
+            round(1, 1)
+        )
+        
 class CarRandomControlManager:
 
     def __init__(self):
@@ -276,6 +317,13 @@ class CarRandomControlManager:
         # ignore inputs and return random decision
         turn = random.uniform(-1, 1)
         acceleration = random.uniform(0, 1)
+        return (turn, acceleration)
+
+
+class CarNeuralControlManager:
+
+    def decide_actions(self, inputs):
+        # TODO hook up neural net
         return (turn, acceleration)
 
 
@@ -300,7 +348,7 @@ def load_track_data_from_image(image_path):
 
 
 if __name__ == '__main__':
-    track_data = load_track_data_from_image('track.png')
+    track_data = load_track_data_from_image('tracks/1.png')
     plane = PhysicalPlaneWithTrack(track_data)
     sim = Simulation(plane)
     car = Car(10, 20, 20, 20, 20)
