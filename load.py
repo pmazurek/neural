@@ -34,7 +34,7 @@ SCREEN_TITLE = ""
 def main():
     arcade.open_window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
     arcade.set_background_color(arcade.color.WHITE)
-    arcade.schedule(on_draw, 1 / 10)
+    arcade.schedule(on_draw, 1 / 100)
     arcade.run()
 
 

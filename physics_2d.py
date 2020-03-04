@@ -1,5 +1,6 @@
 import unittest
 import math
+import random
 
 from collections import defaultdict
 
@@ -13,6 +14,8 @@ class Simulation:
     def simulate(self):
         for x in range(0, 1000):
             self.plane.calculate_time_derivatives()
+            self.plane.apply_object_actions()
+            self.plane.detect_collisions()
             self.states.append(
                 self.plane.dump_state()
             )
@@ -39,12 +42,32 @@ class PhysicalPlane:
 
         self.physical_objects = new_physical_objects
 
+    def apply_object_actions(self):
+        for physical_object, _ in self.physical_objects:
+            if hasattr(physical_object, 'apply_controls'):
+                physical_object.apply_controls()
+
     def dump_state(self):
         objects = []
         for physical_object in self.physical_objects:
             objects.append(physical_object[1])
 
         return objects
+    
+    def detect_collisions(self):
+        pass
+
+
+class PhysicalPlaneWithTrack(PhysicalPlane):
+
+    def __init__(self,  track_data):
+        super().__init__()
+        self.track_data = track_data
+
+    def detect_collisions(self):
+        for physical_object, position in self.physical_objects:
+            pass # TODO
+
 
 class GeometricVector2D:
 
@@ -69,6 +92,8 @@ class GeometricVector2D:
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
 
+    def set_length(self, length):
+        self.length = length
 
 class Vector2D:
     def __init__(self, x, y):
@@ -145,15 +170,21 @@ class Car(PhysicalRect):
     def turn(self, value):
         assert value >= -1
         assert value <= 1
-        self.force.turn(agility_degrees_max * value)
+        self.force.turn(self.agility_degrees_max * value)
 
     def set_acceleration(self, value):
         assert value >= -1
         assert value <= 1
-        self.force.set_length(acceleration_force_max * value)
+        self.force.set_length(self.acceleration_force_max * value)
     
     def apply_controls(self):
-        pass
+        angle, acceleration = self.control_manager.decide_actions(None) # TODO inputs
+        self.set_acceleration(acceleration)
+        self.turn(angle)
+
+    def set_control_manager(self, control_manager):
+        self.control_manager = control_manager
+
         
 class TestPhysicalPlaneWithBasicObject(unittest.TestCase):
 
@@ -220,10 +251,27 @@ class TestPhysicalPlaneWithBasicObject(unittest.TestCase):
         )
 
 
+
+class CarRandomControlManager:
+
+    def __init__(self):
+        pass
+
+    def decide_actions(self, inputs):
+        # ignore inputs and return random decision
+        turn = random.uniform(0, 1)
+        acceleration = random.uniform(0, 1)
+        return (turn, acceleration)
+
+
+
 if __name__ == '__main__':
+    import pdb; pdb.set_trace()
     plane = PhysicalPlane()
     sim = Simulation(plane)
     car = Car(10, 20, 20, 20, 20)
+    random_control_manager = CarRandomControlManager()
+    car.set_control_manager(random_control_manager)
     force = GeometricVector2D(1, 1)
     car.force = force
     plane.add_physical_object(car, Vector2D(0, 0))
