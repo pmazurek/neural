@@ -3,38 +3,54 @@ import arcade
 
 from physics_2d import *
 
-result_sim = pickle.load(open('result.sim', 'rb'))
-
-for step in result_sim.states:
-    for an_object in step:
-        print("object %s" % str(an_object))
 
 
-def on_draw(delta_time):
-    arcade.start_render()
-    step = on_draw.states[on_draw.current_step]
-    on_draw.current_step +=1 
-
-    arcade.draw_rectangle_filled(
-        step[0].x,
-        step[0].y,
-        10,
-        10,
-        arcade.color.ALIZARIN_CRIMSON
-    )
+SCREEN_WIDTH = 500
+SCREEN_HEIGHT = 500
 
 
-on_draw.current_step = 0 
-on_draw.states = result_sim.states
+class SimulationVisualisation(arcade.Window):
 
-SCREEN_WIDTH = 600
-SCREEN_HEIGHT = 600
-SCREEN_TITLE = ""
+    
+    def __init__(self, width, height, title, simulation):
+        super().__init__(width, height, title)
+
+        self.simulation = simulation
+        self.current_step = 0
+
+    def setup(self):
+        self.background = arcade.load_texture("track.png")
+
+    def on_draw(self):
+        arcade.start_render()
+
+        step = self.simulation.states[self.current_step]
+        self.current_step +=1 
+        arcade.draw_lrwh_rectangle_textured(
+            0, 0,
+            SCREEN_WIDTH, SCREEN_HEIGHT,
+            self.background
+        )
+
+        arcade.draw_rectangle_filled(
+            step[0].x / self.simulation.plane.track_granularity_m,
+            step[0].y / self.simulation.plane.track_granularity_m,
+            10,
+            10,
+            arcade.color.ALIZARIN_CRIMSON
+        )
+
+
 
 def main():
-    arcade.open_window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-    arcade.set_background_color(arcade.color.WHITE)
-    arcade.schedule(on_draw, 1 / 100)
+    result_sim = pickle.load(open('result.sim', 'rb'))
+
+    for step in result_sim.states:
+        for an_object in step:
+            print("object %s" % str(an_object))
+
+    window = SimulationVisualisation(SCREEN_WIDTH, SCREEN_HEIGHT, "Sim", result_sim)
+    window.setup()
     arcade.run()
 
 

@@ -14,6 +14,7 @@ class Simulation:
     def simulate(self):
         is_collision = False
         steps = 0
+
         for step_number in range(0, 1000):
             self.plane.calculate_time_derivatives()
             self.plane.apply_object_actions()
@@ -76,7 +77,7 @@ class PhysicalPlaneWithTrack(PhysicalPlane):
             track_position_x = math.floor(position.x / self.track_granularity_m)
             track_position_y = math.floor(position.y / self.track_granularity_m)
             try:
-                is_collision = bool(self.track_data[track_position_x][track_position_y])
+                is_collision = bool(self.track_data[track_position_y][track_position_x])
             except:
                 is_collision = True
             return is_collision
@@ -273,7 +274,7 @@ class CarRandomControlManager:
 
     def decide_actions(self, inputs):
         # ignore inputs and return random decision
-        turn = random.uniform(0, 1)
+        turn = random.uniform(-1, 1)
         acceleration = random.uniform(0, 1)
         return (turn, acceleration)
 
@@ -287,12 +288,14 @@ def load_track_data_from_image(image_path):
     for x in range(0, img.size[0]):
         track_line = []
         for y in range(0, img.size[1]):
-            if track[x,y] == (255, 255, 255, 255):
+            if track[y, x] == (255, 255, 255, 255):
                 track_line.append(0)
             else:
                 track_line.append(1)
 
         track_data.append(track_line)
+
+    track_data.reverse()
     return track_data
 
 
@@ -305,7 +308,7 @@ if __name__ == '__main__':
     car.set_control_manager(random_control_manager)
     force = GeometricVector2D(1, 1)
     car.force = force
-    plane.add_physical_object(car, Vector2D(2.4, 45.9))
+    plane.add_physical_object(car, Vector2D(2, 4))
 
     collision, last_step = sim.simulate()
     print(collision, last_step)
