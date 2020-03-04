@@ -12,23 +12,29 @@ class Simulation:
         self.states = []
 
     def simulate(self):
-        for x in range(0, 1000):
+        is_collision = False
+        steps = 0
+        for step_number in range(0, 1000):
             self.plane.calculate_time_derivatives()
             self.plane.apply_object_actions()
-            self.plane.detect_collisions()
+            is_collision = self.plane.detect_collisions()
+
+            if is_collision:
+                break
             self.states.append(
                 self.plane.dump_state()
             )
+            steps += 1
+
+        return (is_collision, steps)
 
 class PhysicalPlane:
     def __init__(self):
         self.physical_objects = []
-        self.collision_layers = defaultdict(list)
         self.time_delta_seconds = 0.01
 
-    def add_physical_object(self, physical_object, position, collision_layer=None):
+    def add_physical_object(self, physical_object, position):
         self.physical_objects.append((physical_object, position))
-        self.collision_layers[collision_layer].append(physical_object)
 
     def calculate_time_derivatives(self):
         new_physical_objects = []
@@ -55,7 +61,7 @@ class PhysicalPlane:
         return objects
     
     def detect_collisions(self):
-        pass
+        return False
 
 
 class PhysicalPlaneWithTrack(PhysicalPlane):
@@ -63,10 +69,18 @@ class PhysicalPlaneWithTrack(PhysicalPlane):
     def __init__(self,  track_data):
         super().__init__()
         self.track_data = track_data
+        self.track_granularity_m = 0.1
 
     def detect_collisions(self):
         for physical_object, position in self.physical_objects:
-            pass # TODO
+            track_position_x = math.floor(position.x / self.track_granularity_m)
+            track_position_y = math.floor(position.y / self.track_granularity_m)
+            try:
+                is_collision = bool(self.track_data[track_position_x][track_position_y])
+            except:
+                is_collision = True
+            return is_collision
+
 
 
 class GeometricVector2D:
@@ -264,23 +278,41 @@ class CarRandomControlManager:
         return (turn, acceleration)
 
 
+def load_track_data_from_image(image_path):
+    from PIL import Image
+    img = Image.open(image_path)
+    track = img.load()
+
+    track_data = []
+    for x in range(0, img.size[0]):
+        track_line = []
+        for y in range(0, img.size[1]):
+            if track[x,y] == (255, 255, 255, 255):
+                track_line.append(0)
+            else:
+                track_line.append(1)
+
+        track_data.append(track_line)
+    return track_data
+
 
 if __name__ == '__main__':
-    import pdb; pdb.set_trace()
-    plane = PhysicalPlane()
+    track_data = load_track_data_from_image('track.png')
+    plane = PhysicalPlaneWithTrack(track_data)
     sim = Simulation(plane)
     car = Car(10, 20, 20, 20, 20)
     random_control_manager = CarRandomControlManager()
     car.set_control_manager(random_control_manager)
     force = GeometricVector2D(1, 1)
     car.force = force
-    plane.add_physical_object(car, Vector2D(0, 0))
+    plane.add_physical_object(car, Vector2D(2.4, 45.9))
 
-    sim.simulate()
+    collision, last_step = sim.simulate()
+    print(collision, last_step)
 
     import pickle
     pickle.dump(sim, open("result.sim", "wb"))
 
-
     unittest.main()
+
 
