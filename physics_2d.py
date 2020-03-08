@@ -3,6 +3,8 @@ import math
 import random
 import copy
 
+from PIL import Image
+from neural_net import Network
 from collections import defaultdict
 
 
@@ -16,16 +18,17 @@ class Simulation:
         is_collision = False
         steps = 0
 
-        for step_number in range(0, 1000):
+        for step_number in range(0, 3000):
             self.plane.calculate_time_derivatives()
             self.plane.apply_object_actions()
             is_collision = self.plane.detect_collisions()
 
-            if is_collision:
-                break
             self.states.append(
                 self.plane.dump_state()
             )
+
+            if is_collision:
+                break
             steps += 1
 
         return (is_collision, steps)
@@ -77,6 +80,7 @@ class PhysicalPlaneWithTrack(PhysicalPlane):
         for physical_object, position in self.physical_objects:
             track_position_x = math.floor(position.x / self.track_granularity_m)
             track_position_y = math.floor(position.y / self.track_granularity_m)
+
             try:
                 is_collision = bool(self.track_data[track_position_y][track_position_x])
             except:
@@ -142,11 +146,13 @@ class PhysicalObject:
     def calculate_time_derivatives(self, time_delta_seconds):
         x_velocity = self.velocity.x
         y_velocity = self.velocity.y
+
         if self.force.x != 0:
             x_velocity += ((self.mass/self.force.x) * time_delta_seconds)
         if self.force.y != 0:
             y_velocity += ((self.mass/self.force.y) * time_delta_seconds)
         self.velocity = Vector2D(x_velocity, y_velocity)
+        print(self.velocity)
 
     def get_velocity(self):
         return self.velocity
@@ -182,12 +188,13 @@ class PhysicalRect(PhysicalObject):
         )
     
 
-class Car(PhysicalRect):
+class Car(PhysicalObject):
 
-    def __init__(self, mass, x_length, y_length, acceleration_force_max, agility_degrees_max):
-        super().__init__(mass, x_length, y_length)
+    def __init__(self, mass, acceleration_force_max, agility_degrees_max, control_manager=None):
+        super().__init__(mass)
         self.acceleration_force_max = acceleration_force_max
         self.agility_degrees_max = agility_degrees_max
+        self.control_manager = control_manager
 
     def turn(self, value):
         assert value >= -1
@@ -322,13 +329,33 @@ class CarRandomControlManager:
 
 class CarNeuralControlManager:
 
+    def __init__(self, network=None):
+        if network is not None:
+            self.network = network
+        else:
+            self.network = Network(5, 3, 15, 2)
+
     def decide_actions(self, inputs):
-        # TODO hook up neural net
+        self.network.reset()
+        for input_id, sensor in enumerate(inputs):
+            if sensor > 3:
+                self.network.input_layer[input_id].fire()
+
+        turn = self.network.output_layer[0].saturation
+        acceleration = self.network.output_layer[1].saturation
+        if turn > 100:
+            turn = 100
+
+        if acceleration > 100:
+            acceleration = 100
+
+        turn = turn/100
+        acceleration = acceleration/100
+
         return (turn, acceleration)
 
 
 def load_track_data_from_image(image_path):
-    from PIL import Image
     img = Image.open(image_path)
     track = img.load()
 
@@ -348,22 +375,6 @@ def load_track_data_from_image(image_path):
 
 
 if __name__ == '__main__':
-    track_data = load_track_data_from_image('tracks/1.png')
-    plane = PhysicalPlaneWithTrack(track_data)
-    sim = Simulation(plane)
-    car = Car(10, 20, 20, 20, 20)
-    random_control_manager = CarRandomControlManager()
-    car.set_control_manager(random_control_manager)
-    force = GeometricVector2D(1, 1)
-    car.force = force
-    plane.add_physical_object(car, Vector2D(2, 4))
-
-    collision, last_step = sim.simulate()
-    print(collision, last_step)
-
-    import pickle
-    pickle.dump(sim, open("result.sim", "wb"))
-
     unittest.main()
 
 

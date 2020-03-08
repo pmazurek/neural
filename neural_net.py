@@ -117,91 +117,86 @@ class Network:
             neuron.clean_saturation()
 
 
-# Assumptions:
-# 1, 0 -> 1, 0, 0
-# 0, 1 -> 0, 1, 0
-# 1, 1 -> 0, 0, 1
+if __name__ == '__main__':
+    # initiate the networks
+    networks = []
+    for x in range(0, 500):
+        networks.append(Network(2, 4, 40, 3))
 
 
-# initiate the networks
-networks = []
-for x in range(0, 500):
-    networks.append(Network(2, 4, 40, 3))
+    def compute_network(network):
+        desired_effects = [
+            ((1, 0), (10, 5, 5)),
+            ((0, 1), (5, 10, 5)),
+            ((1, 1), (5, 5, 10)),
+        ]
+        print(' ============ NETWORK ============= ')
+
+        score = 0
+        for desired_effect in desired_effects:
+            inputs_config = desired_effect[0]
+            desired_outputs = desired_effect[1]
+            print("Input: %s" % str(inputs_config))
+            print("Desired effect: %s" % str(desired_effect))
+
+            # Fire all the inputs in desired input
+            for (input_number, is_fired) in enumerate(inputs_config):
+                if is_fired:
+                    network.input_layer[input_number].fire()
+
+            # check outputs and judge how far away from score
+            for (output_number, desired_value) in enumerate(desired_outputs):
+                score_distance = abs(network.output_layer[output_number].saturation - desired_value)
+
+                print("Score distance for output nr %s, value: %s, desired val: %s, score: %s" % (output_number, network.output_layer[output_number].saturation, desired_value, score_distance))
+                # sum up the score (smaller distance is better)
+                score += score_distance
 
 
-def compute_network(network):
-    desired_effects = [
-        ((1, 0), (10, 5, 5)),
-        ((0, 1), (5, 10, 5)),
-        ((1, 1), (5, 5, 10)),
-    ]
-    print(' ============ NETWORK ============= ')
+            network.reset()
 
-    score = 0
-    for desired_effect in desired_effects:
-        inputs_config = desired_effect[0]
-        desired_outputs = desired_effect[1]
-        print("Input: %s" % str(inputs_config))
-        print("Desired effect: %s" % str(desired_effect))
+        return score
 
-        # Fire all the inputs in desired input
-        for (input_number, is_fired) in enumerate(inputs_config):
-            if is_fired:
-                network.input_layer[input_number].fire()
+    import concurrent.futures
 
-        # check outputs and judge how far away from score
-        for (output_number, desired_value) in enumerate(desired_outputs):
-            score_distance = abs(network.output_layer[output_number].saturation - desired_value)
+    # repeat the process for X generations
+    for generation in range(1, 10000):
 
-            print("Score distance for output nr %s, value: %s, desired val: %s, score: %s" % (output_number, network.output_layer[output_number].saturation, desired_value, score_distance))
-            # sum up the score (smaller distance is better)
-            score += score_distance
+        print("Generation %s " % generation) 
+
+        ## judge networks by assumptions
+        scores = []
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            for network, score in zip(networks, executor.map(compute_network, networks)):
+                print("Score %s" % score)
+                scores.append((score, network))
 
 
-        network.reset()
+    #        for network in networks:
+    #            score = compute_network(network, desired_effects)
+    #            # save the score of the network
+    #            print("Score %s" % score)
+    #            scores.append((score, network))
+    #                
 
-    return score
-
-import concurrent.futures
-
-# repeat the process for X generations
-for generation in range(1, 10000):
-
-    print("Generation %s " % generation) 
-
-    ## judge networks by assumptions
-    scores = []
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        for network, score in zip(networks, executor.map(compute_network, networks)):
-            print("Score %s" % score)
-            scores.append((score, network))
+        # order the networks according to the score
+        # take 5 top networks and create 10 more with deepcopy (5 each)
+        top_net = sorted(scores, key=lambda x: x[0])[0:4]
+        new_networks = []
+        for top_network in top_net:
+            for x in range(0, 4):
+                new_networks.append(copy.deepcopy(top_network[1]))
 
 
-#        for network in networks:
-#            score = compute_network(network, desired_effects)
-#            # save the score of the network
-#            print("Score %s" % score)
-#            scores.append((score, network))
-#                
-
-    # order the networks according to the score
-    # take 5 top networks and create 10 more with deepcopy (5 each)
-    top_net = sorted(scores, key=lambda x: x[0])[0:4]
-    new_networks = []
-    for top_network in top_net:
-        for x in range(0, 4):
-            new_networks.append(copy.deepcopy(top_network[1]))
+        for network in new_networks:
+            network.randomize_connections()
 
 
-    for network in new_networks:
-        network.randomize_connections()
+        new_networks.append(top_net[0][1]) # append best network
+        #random.shuffle(new_networks)
+
+        networks = new_networks
 
 
-    new_networks.append(top_net[0][1]) # append best network
-    #random.shuffle(new_networks)
-
-    networks = new_networks
-
-
-import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
 
