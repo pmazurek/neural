@@ -148,11 +148,10 @@ class PhysicalObject:
         y_velocity = self.velocity.y
 
         if self.force.x != 0:
-            x_velocity += ((self.mass/self.force.x) * time_delta_seconds)
+            x_velocity += ((self.force.x/self.mass) * time_delta_seconds)
         if self.force.y != 0:
-            y_velocity += ((self.mass/self.force.y) * time_delta_seconds)
+            y_velocity += ((self.force.y/self.mass) * time_delta_seconds)
         self.velocity = Vector2D(x_velocity, y_velocity)
-        print(self.velocity)
 
     def get_velocity(self):
         return self.velocity
